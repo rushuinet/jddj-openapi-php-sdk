@@ -1,8 +1,8 @@
 {
-    "name": "rushui/jddj-openapi-php-sdk",
+    "name": "ddxq/jddj-openapi-php-sdk",
     "description": "jddj-openapi-php-sdk",
     "license": "MIT",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "authors": [
         {
             "name": "如水",

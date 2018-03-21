@@ -11,6 +11,7 @@ class RequestService
     protected $client;
     protected $action='';
     protected $params=array();
+    protected $rows_num = "50";
 
     public function __construct($token,Config $config)
     {

@@ -52,7 +52,7 @@ class JdClient
     {
 		ksort($params);
 
-		$sortedString = $this->app_key;
+		$sortedString = $this->app_secret;
 		foreach ($params as $k => $v)
 		{
             $v = (string)$v;
@@ -74,8 +74,16 @@ class JdClient
 	    }
 	    return implode("&",$qs);
 	}
-	public function curl($url, $postFields = null)
+
+    /**
+     * @param $url
+     * @param null $postFields
+     * @return mixed
+     * @throws Exception
+     */
+    public function curl($url, $postFields = null)
 	{
+	    //var_dump($postFields);die;
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_URL, $url);
 		curl_setopt($ch, CURLOPT_FAILONERROR, false);
@@ -118,7 +126,12 @@ class JdClient
 		return $reponse;
 	}
 
-	public function execute(RequestService $request)
+    /**
+     * @param RequestService $request
+     * @return stdClass
+     * @throws Exception
+     */
+    public function execute(RequestService $request)
     {
         try 
         {
@@ -133,7 +146,7 @@ class JdClient
 		}
 		$apiParams = array();
 		//应用级参数
-		$apiParams['jd_param_json'] = json_encode($request->params());
+		$apiParams['jd_param_json'] = json_encode($request->params(), JSON_UNESCAPED_UNICODE);
 		//系统级别参数
 		$apiParams['token'] 	  = $this ->token;
 		$apiParams['app_key']     = $this ->app_key;
@@ -149,9 +162,14 @@ class JdClient
 			//POST提交
 			$requestUrl = $this->api_request_url . $request->action();
 			$resp = $this->curl($requestUrl,$apiParams);
-			echo "<br>url=>" . $requestUrl;		
-			echo "<br>params=>" . json_encode($apiParams);
-            echo "<br>response=>" . $resp;
+            $log = $this->log;
+            if ($log != null) {
+                $log->info("request data: " . json_encode($apiParams, JSON_UNESCAPED_UNICODE));
+                $log->info("response data: " . $resp);
+            }
+			/*echo "<br>url=>" . $requestUrl;
+			echo "<br>params=>" . json_encode($apiParams, JSON_UNESCAPED_UNICODE);
+            echo "<br>response=>" . $resp;*/
 		}
 		catch (Exception $e)
 		{
@@ -161,36 +179,59 @@ class JdClient
         return $this->onResponse($resp);
 	}
 
-	public function onResponse($resp)
+    /**
+     * @param $resp
+     * @return mixed
+     * @throws Exception
+     */
+    public function onResponse($resp)
     {
         try
         {
             $respObject = json_decode($resp, true);
-            //返回结果校验，有需要自行添加
-            /*if (null !== $respObject)
+            if($respObject === null)
             {
-                if ($respObject["msg"] == "SUCCESS")
+                throw new Exception('服务器繁忙');
+            }
+            if ($respObject["success"])
+            {
+                $result = json_decode($respObject['data']);
+                if(isset($result->success))
                 {
-                    if (false == $this->verifySign($respObject))
+                    if($result->success)
                     {
-		                throw new Exception("verify-error:Invalid Signature of Response" , 3);
+                        return  $result->result;
                     }
+                    $detail = isset($result->detail) ? ':'.$result->detail :'';
+                    throw new Exception($result->msg.$detail, $result->code);
                 }
-                else if ($respObject["msg"] == "FAIL")
+                if(isset($result->ret))
                 {
-                    throw new Exception($respObject["errormsg"], $respObject["errorcode"]);
+                    if($result->ret)
+                    {
+                        return  $result->data;
+                    }
+                    throw new Exception($result->retMsg, $result->retCode);
                 }
-                else
+
+                if(isset($result->code))
                 {
-                    assert(false);
+                    if($result->code == 200) return $result->result;
+                    throw new Exception($result->msg, $result->code);
                 }
-            }*/
+
+                throw new Exception('服务器返回参数异常');
+            }
+            else
+            {
+                throw new Exception($respObject["msg"], $respObject["code"]);
+            }
         }
 		catch (Exception $e)
         {
             throw $e;
         }
 
-		return $respObject;
+
     }
 }
